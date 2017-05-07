@@ -1,0 +1,79 @@
+---
+title: 'Computing Exercise: ECON 769'
+author: "Vladimir Smiljanic"
+date: '2017-05-06'
+output: html_document
+---
+
+###Question 2
+
+####2.1 Pooled OLS
+####2.2 Between
+####2.3 Within
+####2.4 First Differences
+####2.5 Random Effects
+
+###Question 3
+####3.1.1 Pooled OLS
+Pooled OLS specifies constant coefficients and can be defined by the model: 
+
+\begin{align*}
+y_{it} = \alpha + x'_{it}\beta + u_{it},i&=1\dots N\\
+t&=1\dots T 
+\end{align*}
+
+Since all of the data is pooled, the number of observations is equal to $N \cdot T$. If Cov[$u_{it},x_{it}$]=0, then either $N\rightarrow\infty$ or $T\rightarrow\infty$ is sufficient for consistency. The pooled OLS estimator will be consistent if there is no correlation between $\alpha$ and $x_{it}$ and that regressors are uncorrelated with the error term. 
+
+In addition, our model will be inconsistent if the true model is a fixed effects model where the constant term is hetergenious for individual and is correlated with the regressors. Using pooled OLS estimation will result in an inconsistent $\beta$ as a result of the hetergenioty being placed into the error term, which would now be correlated with the regressors. If the underlying true model is random effects, then using pooled OLS will result in consistent estimator due to the constant term being iid.
+
+
+\begin{align*}
+y_{it} = \alpha + x'_{it}\beta + u_{it}, i&=1\dots N\\
+t&=1\dots T 
+\end{align*}
+
+Where $u_{it} = \alpha_i - \alpha + \epsilon_{it}$. If there is a fixed effect for true model, then the $\alpha_i$ will be within the error term, correlated with the regressors.
+
+####3.1.2 Between
+Where the pooled OLS estimator uses variation over both time and cross-section to estimate $\beta$, the between estatimtor averages and individuals variables over time, thus only using variation between individuals. Using the individual-specific effects model ($y_{it}=\alpha_i + x'_{it}\beta + \epsilon_{it}):
+
+\begin{align*}
+\bar y_i = \alpha + \bar x'_i\beta + (\alpha_i - \alpha_{it} + \bar \epsilon_i), i=1\dots N
+\end{align*}
+
+where $\bar y_i = T^{-1}\sum_t y_{it}, \bar \epsilon_i = T^{-1}\sum_t \epsilon_{it},\bar x_i = T^{-1}\sum_t x_{it}$.
+
+The between estimator is consistent if the regressors $\bar x_i$ are independent of the composite error $(\alpha_i - \alpha_{it} + \bar \epsilon_i)$. This is fine for a constant coefficient or random effects model but will be inconsistent for a fixed effects model. The individual hetergeionity of the constant, which is correlated overtime, will be found in the error term. This correlation will be found within the $x_{it}$ and thus the $\bar x_i$ and will result in an inconsistent estimator. 
+
+####3.1.3 Within
+####3.1.4 First Differences
+First-differences measures the one-period change in regressors and dependent variables. By using the individual-specific effects model, and lagging it one period, you can difference out the $\alpha_i$ term and provide yourself with a consistent estimator using OLS. 
+
+\begin{align*}
+y_{it-1} = \alpha_i + x'_{it-1}\beta + \epsilon_{it-1}, i&=1\dots N\\
+t&=1\dots T\\
+\end{align*}
+
+By differencing out the individual-specific constant term, we handle any correlations present within the data. As a result, a fixed effects model, would yield a consistent estimator (along with pooled OLS and random effects model).
+
+\begin{align*}
+(y_{it}-y_{it-1}) = (x'_{it}-x'_{it-1})\beta + (\epsilon_{it}-\epsilon_{it-1}), i&=1\dots N\\
+t&=1\dots T\\
+\end{align*}
+
+Issues do occur if the regressors are time-invariant and hence differencing two periods would result in zero ($x'_{it}-x'_{it-1}=0$). In addition, we are also under the assumption that it is a fixed effects model and the constant term is time-invariant.
+
+####3.1.5 Random Effects
+
+####3.2.1 Pooled OLS
+We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
+
+We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model overperdicts the dependent variable in one year, it may also overpredct for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how percise the estimator is. 
+####3.2.2 Between
+??
+The between standard errors will also experience the same issue as pooled OLS as a result 
+
+
+####3.2.3 Within
+####3.2.4 First Differences
+####3.2.5 Random Effects
