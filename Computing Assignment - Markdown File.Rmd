@@ -2,7 +2,9 @@
 title: 'Computing Exercise: ECON 769'
 author: "Vladimir Smiljanic"
 date: '2017-05-06'
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ###Question 2
@@ -46,6 +48,36 @@ where $\bar y_i = T^{-1}\sum_t y_{it}, \bar \epsilon_i = T^{-1}\sum_t \epsilon_{
 The between estimator is consistent if the regressors $\bar x_i$ are independent of the composite error $(\alpha_i - \alpha_{it} + \bar \epsilon_i)$. This is fine for a constant coefficient or random effects model but will be inconsistent for a fixed effects model. The individual hetergeionity of the constant, which is correlated overtime, will be found in the error term. This correlation will be found within the $x_{it}$ and thus the $\bar x_i$ and will result in an inconsistent estimator. 
 
 ####3.1.3 Within
+
+To ensure consistency, we require strict exogeniety conditional on the unobserved effect. That means we cannot have dependecy on lagged variables, specifically feedback of y to future x's. 
+
+Where we have a model:
+
+\begin{align*}
+y_i = \alpha_i + x'_i\beta + \epsilon_{it}, i=1\dots N
+\end{align*}
+
+We will require E[$\epsilon_{it} |x_{i1},\dots,x_{Nt}$]=0.
+
+'Within' estimator takes advantage of the setup of panel data, where you can use the individual-specified deviations of regressors and dependent variable to find their association with their time-averaged values. The regression over time $\bar y_i = \alpha_ + \bar x'_i\beta + \bar \epsilon_i)$ can be subtracted from our individual-sepicified model to eliminate the individual varying constant.
+
+\begin{align*}
+y_{it}-\bar y_i = (x_{it}-\bar x_i)'\beta + (\epsilon_{it}-\bar \epsilon_i), i=1\dots N, t=1\dots T\\
+\end{align*}
+
+This will lead to a consistent estimator in fixed effects models, along with pooled OLS and random effects models. Though $\beta$s can be estimated consistently, the individual constant terms can also be estimated but will be inconsistent in short panels. OLS and GLS can be used for the 'within' estimators to achieve consistency.
+
+Relating back to the exogenity required, the condidition that must hold for consistent estimation is:
+
+\begin{align*}
+E[\epsilon_{it}-\bar \epsilon_i |x_{i1}-\bar x_i,\dots,x_{Nt}]=0\end{align*}
+\end{align*}
+
+Though the original strict exogenity condition is sufficient.
+
+A limitation is if any of the regressors are time-invariant, then they would be differenced out and you will not be able to find coefficients for them.
+
+
 ####3.1.4 First Differences
 First-differences measures the one-period change in regressors and dependent variables. By using the individual-specific effects model, and lagging it one period, you can difference out the $\alpha_i$ term and provide yourself with a consistent estimator using OLS. 
 
@@ -64,6 +96,10 @@ t&=1\dots T\\
 Issues do occur if the regressors are time-invariant and hence differencing two periods would result in zero ($x'_{it}-x'_{it-1}=0$). In addition, we are also under the assumption that it is a fixed effects model and the constant term is time-invariant.
 
 ####3.1.5 Random Effects
+
+Random effects makes the assumption that the regressors and the idiosyncratic errors have no correlation. As a result, we can use both GLS and OLS to find consistent estimators. Once again, we need to have strict exogeneity between the x's and the $\alpha$. Even though the constant terms are individual-specific, they are assumed to be iid [$0,\sigma^2$] and have no correlation with the error term which is also iid [$0,\sigma^2$]. As a result, using the random effects estimator on a true model that is pooled OLS or random effects will be consistent but inconsistent with fixed effects as the iid constant term assumption will not hold. 
+
+
 
 ####3.2.1 Pooled OLS
 We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. We must use panel-corrected standard errors to ensure that we are providing the correct inference. 

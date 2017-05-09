@@ -146,7 +146,7 @@ $(document).ready(function () {
 <h3>Question 3</h3>
 <div id="pooled-ols-1" class="section level4">
 <h4>3.1.1 Pooled OLS</h4>
-<p>Pooled OLS specifies onstant coefficients and can be defined by the model:</p>
+<p>Pooled OLS specifies constant coefficients and can be defined by the model:</p>
 <span class="math display">\[\begin{align*}
 y_{it} = \alpha + x'_{it}\beta + u_{it},i&amp;=1\dots N\\
 t&amp;=1\dots T 
@@ -175,10 +175,18 @@ t&amp;=1\dots T
 <h4>3.1.4 First Differences</h4>
 <p>First-differences measures the one-period change in regressors and dependent variables. By using the individual-specific effects model, and lagging it one period, you can difference out the <span class="math inline">\(\alpha_i\)</span> term and provide yourself with a consistent estimator using OLS.</p>
 <span class="math display">\[\begin{align*}
-\bar y_{it} = \alpha_i + \bar x'_{it}\beta + \epsilon_{it}, i&amp;=1\dots N\\
+y_{it-1} = \alpha_i + x'_{it-1}\beta + \epsilon_{it-1}, i&amp;=1\dots N\\
 t&amp;=1\dots T\\
 \end{align*}\]</span>
-<p>By differencing out the individual-specific constant term, we handle any correlations present within the data. As a result, a fixed effects model, would yield a consistent estimator (along with pooled OLS and random effects model.) ####3.1.5 Random Effects</p>
+<p>By differencing out the individual-specific constant term, we handle any correlations present within the data. As a result, a fixed effects model, would yield a consistent estimator (along with pooled OLS and random effects model).</p>
+<span class="math display">\[\begin{align*}
+(y_{it}-y_{it-1}) = (x'_{it}-x'_{it-1})\beta + (\epsilon_{it}-\epsilon_{it-1}), i&amp;=1\dots N\\
+t&amp;=1\dots T\\
+\end{align*}\]</span>
+<p>Issues do occur if the regressors are time-invariant and hence differencing two periods would result in zero (<span class="math inline">\(x'_{it}-x'_{it-1}=0\)</span>). In addition, we are also under the assumption that it is a fixed effects model and the constant term is time-invariant.</p>
+</div>
+<div id="random-effects-1" class="section level4">
+<h4>3.1.5 Random Effects</h4>
 </div>
 <div id="pooled-ols-2" class="section level4">
 <h4>3.2.1 Pooled OLS</h4>
@@ -191,7 +199,7 @@ t&amp;=1\dots T\\
 <div id="first-differences-2" class="section level4">
 <h4>3.2.4 First Differences</h4>
 </div>
-<div id="random-effects-1" class="section level4">
+<div id="random-effects-2" class="section level4">
 <h4>3.2.5 Random Effects</h4>
 </div>
 </div>
