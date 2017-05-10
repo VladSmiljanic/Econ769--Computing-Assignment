@@ -1,89 +1,85 @@
 library(haven)
 #source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
 source <- read_dta("C:/Users/vlads_000/Documents/GitHub/Econ769--Computing-Assignment/017769exercise.dta")
+require(sandwich)
+require(MASS)
 require(plm)
 require(boot)
-tab<-data.frame(Model=c("Pooled","Between","Within","First Difference","Random Effect"))
+require(pglm)
+tab<-data.frame(Model=c("Pooled","Between","First Difference","Random Effect","Within"))
 resamp<-function(data,replace,size){ #Resampling function
-  unique_ind<-unique(source$id) #Identifies the datas unique individuals
+  unique_ind<-unique(data$id) #Identifies the datas unique individuals
   samp_ind<-sample(unique_ind,size=size,replace=replace) #Randomly samples over those individuals
-  do.call(rbind,lapply(samp_ind,function(x) source[source$id==x,])) #Returns data frame with those individuals observations over time.
+  do.call(rbind,lapply(samp_ind,function(x) data[data$id==x,])) #Returns data frame with those individuals observations over time.
 }
+
+
+form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
+#form<-as.formula(paste("lnhr~lnwg"))
 
 mydata<-resamp(source,replace=FALSE,size=266)
-alpha<-numeric()
-beta<-numeric()
-se<-numeric()
-se.b<-numeric()
 
-pooled<- plm(lnhr ~ lnwg, data = mydata, model = "pooling",index=c("id"))
-between <- plm(lnhr ~ lnwg, data = mydata, model = "between",index=c("id"))
-within <- plm(lnhr ~ lnwg, data = mydata, model = "within",index=c("id"),effect="individual")
+pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
+between <- plm(form, data = mydata, model = "between",index=c("id"))
+within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
 a.within<-mean(fixef(within)) 
-fd<-plm(lnhr ~ lnwg, data = mydata, model = "fd",index=c("id"))
-random<-plm(lnhr ~ lnwg, data = mydata, model = "random",index=c("id"),effect="individual")
+#Note this is the average of all the individual constant terms.
 
-alpha[1]<-coef(pooled)[1]
-alpha[2]<-coef(between)[1]
-alpha[3]<-a.within
-alpha[4]<-coef(fd)[1]
-alpha[5]<-coef(random)[1]
-tab$alpha<-alpha
+fd<-plm(form, data = mydata, model = "fd",index=c("id"))
+random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
 
-beta[1]<-coef(pooled)[2]
-beta[2]<-coef(between)[2]
-beta[3]<-coef(within)[1]
-beta[4]<-coef(fd)[2]
-beta[5]<-coef(random)[2]
-tab$beta<-beta
+within <- plm(lnhr~lnwg, data = mydata, model = "within",index=c("id"),effect="individual")
+random<-plm(lnhr~lnwg, data = mydata, model = "random",index=c("id"),effect="individual")
 
+values<-list(pooled,between,fd,random)
+alpha<-sapply(values, function(x) coef(x)[1])#Extracts constants
+alpha[5]<-a.within #Need to do it seperately
 
-se[1]<-sqrt(vcov(pooled)[2][2])
-se[2]<-coef(between)[2]
-se[3]<-coef(within)[1]
-se[4]<-coef(fd)[2]
-se[5]<-coef(random)[2]
-tab$se<-se
+beta<-sapply(values,function(x) coef(x)[2])
+beta[5]<-coef(within)[1]
 
+se<-sapply(values, function(x) sqrt(vcov(x)[2,2]))
+se[5]<-sqrt(vcov(within)[1,1])
 
+phtest(within,random) #Just for the labour supply elasticity component
 
-
-boot.pool<-function(mydat) coef(plm(lnhr ~ lnwg, data = mydat, model = "pooling",index=c("id")))[2]
-
-boot.between<-function(mydat) coef(plm(lnhr ~ lnwg, data = mydat, model = "between",index=c("id")))[2]
-
-boot.within<-function(mydat) coef(plm(lnhr ~ lnwg, data = mydat, model = "within",index=c("id"),effect="individual"))[1]
-
-boot.fd<-function(mydat) coef(plm(lnhr ~ lnwg, data = mydat, model = "fd",index=c("id")))[2]
-
-boot.re<-function(mydat) coef(plm(lnhr ~ lnwg, data = mydat, model = "random",index=c("id")))[2]
-
-boot.my<-function(myfun, R){
-  vec.coef<-numeric()
-  if (myfun=="pooling"){
-    for (i in 1:R){
-      vec.coef[i]<-boot.pool(resamp(source,replace=TRUE,size=532))
-    }  
-  } else if (myfun=="within"){
-    for (i in 1:R){
-      vec.coef[i]<-boot.within(resamp(source,replace=TRUE,size=532))
-    }
-  } else if (myfun=="between"){
-    for (i in 1:R){
-      vec.coef[i]<-boot.between(resamp(source,replace=TRUE,size=532))
-    }
-  } else if (myfun=="random"){
-    for (i in 1:R){
-      vec.coef[i]<-boot.re(resamp(source,replace=TRUE,size=532))
-    }
-  } else if (myfun=="fd"){
-    for (i in 1:R){
-      vec.coef[i]<-boot.fd(resamp(source,replace=TRUE,size=532))
-    }
+boot_se<-function(data,R,model,effect,parameter){
+  unique_ind<-unique(data$id)#Finds all unique individuals
+  samp_ind<-list()#Creates list to store all of resamples on unique individuals
+  for (j in 1:R){
+    samp_ind[[j]]<-sample(unique_ind,size=length(unique_ind),replace=TRUE) #R resamples of individuals
   }
-  print(paste("Bootstrapped Standard Error: ",round(sd(vec.coef),digits=3)))
+  #Creates list with all the bootstrap data sets we need
+  func_data<-lapply(samp_ind, function(x) do.call(rbind,lapply(x,function(x) data[data$id==x,])))
+  #Creates list of all the models from bootstrapping
+  lapply(func_data, function(x) coef(plm(form, data=x, model=model,index="id",effect=effect)))
 }
 
-boot.my("pooling",200)
+se.b<-numeric()
+#
+models<-boot_se(mydata,200,"pooling",effect=NULL)
+se.b[1]<-sd(sapply(models, function(x) x[2]))
+#
+models<-boot_se(mydata,200,"between",effect=NULL)
+se.b[2]<-sd(sapply(models, function(x) x[2]))
+#
+models<-boot_se(mydata,200,"fd",effect=NULL)
+se.b[3]<-sd(sapply(models, function(x) x[2]))
+#
+models<-boot_se(mydata,200,"random",effect="individual")
+se.b[4]<-sd(sapply(models, function(x) x[2]))
+#
+models<-boot_se(mydata,200,"within",effect="individual")
+se.b[5]<-sd(sapply(models, function(x) x[1]))
+#
+tab$alpha<-alpha
+tab$beta<-beta
+tab$se.b<-se.b
+tab$se<-se
+View(tab)
 
-
+mydata$hr<-round(exp(mydata$lnhr)/365)
+form.count<-as.formula(paste("hr~lnwg+kids+disab+ageh+agesq"))
+summary(glm(hr~lnwg,family="poisson",data=mydata))
+summary(pglm(hr~lnwg,model="within",family=poisson,data=mydata,index="id"))
+summary(pglm(hr~lnwg,model="random",family=poisson,data=mydata,index="id"))

@@ -102,14 +102,30 @@ Random effects makes the assumption that the regressors and the idiosyncratic er
 
 
 ####3.2.1 Pooled OLS
-We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
+We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. Erros are auto-correlated over time. In short panels, there is an assumption that there is independence over individuals.We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
 
 We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model overperdicts the dependent variable in one year, it may also overpredct for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how percise the estimator is. 
-####3.2.2 Between
-??
-The between standard errors will also experience the same issue as pooled OLS as a result 
 
+The default standard errors presented by the regression output would be valid if we the erros were homoskedastic and not serially correlated (over time). Failure to control for homoskadesticity will give you a downward bias.
+
+
+####3.2.2 Between
+
+The inclusion of $\alpha_i$ will help control for serial correlation but the large gap between the default standard errors and the bootstrap standard errors means there is still an issue. The default standard error still is under the assumption that the errors are homoskadicitic. Since between estimators only uses cross-section variation, it only is under the homskeditictic assumption.
 
 ####3.2.3 Within
+
+The distribution of the 'within' estimator can be complicated because the $\epsilon_{it}-\bar \epsilon_i$ is correlated over time given individuals. The strong assumption is made that if $\epsilon_{it}$ is iid to provide for consistent standard errors. That is because we can relax the requirement for no serial correlation of error terms in the 'within' model and can apply the standard OLS results.
+
 ####3.2.4 First Differences
+
+First-difference estimators need to account for correlation over time in the error term $\epsilon_{it}-\epsilon_{i,t-1}$. You cannot use OLS standard errors for 'first-difference' model as they only apply if $\epsilon_{it}$ is a random walk and $\epsilon_{it}-\epsilon_{i,t-1}$ is iid. We need to use a robust standard error estimation by assuming $\epsilon_{it}-\epsilon_{i,t-1}$ is a MA(1) process.
 ####3.2.5 Random Effects
+
+The assumption is made that both $\alpha_i$ and $\epsilon_{it}$ are iid, import for when they place in the error term, $u_{it}=\alpha_i+\epsilon_{it}$. 'Random effects' doesn't require more then strict exogeneity and linear indepdence of transformed data for consistency. The assumptions of homoskedasticity are not important for consistency.
+
+##Question 4
+
+The Hausmen test assumes that the fixed effect and random effect estimators are consistent under the null. The alternative hypothesis is that only fixed effect is consistent. We are attempting to find if there is any correlation between the individual-specific effects and the regressors. We assume that the 'random effect' estimator is efficient under null, so no heteroskedicity is present. If there is statistically significant difference between the estimators, then 'fixed effects' are present. 
+
+We can conclude that with both specifications, we produce a large statistic which would reject our null hypothesis. This means we would reject that our individual-specific effects are uncorrelated with regressors and reject that the 'random effects' estimator is consistent.
