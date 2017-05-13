@@ -3,17 +3,92 @@ title: 'Computing Exercise: ECON 769'
 author: "Vladimir Smiljanic"
 date: '2017-05-06'
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
+###Question 1
+
+The following code produces a 50% subsample of the source data, sampling on the individuals.
+
+```{r, echo=FALSE}
+library(haven)
+source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
+```
+
+```{r}
+resamp<-function(data,replace,size){ #Resampling function
+  unique_ind<-unique(data$id) 
+  samp_ind<-sample(unique_ind,size=size,replace=replace)
+  do.call(rbind,lapply(samp_ind,function(x) data[data$id==x,])) 
+}
+
+mydata<-resamp(source,replace=FALSE,size=266)
+```
 
 ###Question 2
 
-####2.1 Pooled OLS
-####2.2 Between
-####2.3 Within
-####2.4 First Differences
-####2.5 Random Effects
+```{r, message=FALSE}
+require(plm)
+form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
+
+pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
+between <- plm(form, data = mydata, model = "between",index=c("id"))
+fd<-plm(form, data = mydata, model = "fd",index=c("id"))
+random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
+within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
+a.within<-mean(fixef(within)) #Average of individual-specific effects
+```
+
+To produce bootstrap standard errors, I built my own R function that would resample on the individuals. I spent a good deal of time attempting to find a package that would allow me to resample panel data which resulted in me building my own iterating technique. Comments for each line of code can be found with the accompanying .rmd file.
+
+```{r kable, echo=FALSE}
+library(knitr)
+
+tab<-data.frame(Model=c("Pooled","Between","First Difference","Random Effect","Within"))
+
+values<-list(pooled,between,fd,random)
+alpha<-sapply(values, function(x) coef(x)[1])#Extracts constants
+alpha[5]<-a.within #Need to do it seperately
+
+beta<-sapply(values,function(x) coef(x)[2])
+beta[5]<-coef(within)[1]
+
+se<-sapply(values, function(x) sqrt(vcov(x)[2,2]))
+se[5]<-sqrt(vcov(within)[1,1])
+
+boot_se<-function(data,R,model,effect,parameter){
+  unique_ind<-unique(data$id)
+  samp_ind<-list()
+  for (j in 1:R){
+    samp_ind[[j]]<-sample(unique_ind,size=length(unique_ind),replace=TRUE)
+  }
+  func_data<-lapply(samp_ind, function(x) do.call(rbind,lapply(x,function(x) data[data$id==x,])))
+  lapply(func_data, function(x) coef(plm(form, data=x, model=model,index="id",effect=effect)))
+}
+
+se.b<-numeric()
+models<-boot_se(mydata,200,"pooling",effect=NULL)
+se.b[1]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"between",effect=NULL)
+se.b[2]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"fd",effect=NULL)
+se.b[3]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"random",effect="individual")
+se.b[4]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"within",effect="individual")
+se.b[5]<-sd(sapply(models, function(x) x[1]))
+
+tab$alpha<-alpha
+tab$beta<-beta
+tab$se<-se
+tab$se.boot<-se.b
+
+kable(tab, digits=3, caption="Linear Model: Estimated Coefficients, Default SE & Bootstrap SE")
+```
 
 ###Question 3
 ####3.1.1 Pooled OLS
@@ -26,7 +101,7 @@ t&=1\dots T
 
 Since all of the data is pooled, the number of observations is equal to $N \cdot T$. If Cov[$u_{it},x_{it}$]=0, then either $N\rightarrow\infty$ or $T\rightarrow\infty$ is sufficient for consistency. The pooled OLS estimator will be consistent if there is no correlation between $\alpha$ and $x_{it}$ and that regressors are uncorrelated with the error term. 
 
-In addition, our model will be inconsistent if the true model is a fixed effects model where the constant term is hetergenious for individual and is correlated with the regressors. Using pooled OLS estimation will result in an inconsistent $\beta$ as a result of the hetergenioty being placed into the error term, which would now be correlated with the regressors. If the underlying true model is random effects, then using pooled OLS will result in consistent estimator due to the constant term being iid.
+In addition, our model will be inconsistent if the true model is a fixed effects model where the constant term is heterogeneous for individual and is correlated with the regressors. Using pooled OLS estimation will result in an inconsistent $\beta$ as a result of the heterogeneity being placed into the error term, which would now be correlated with the regressors. If the underlying true model is random effects, then using pooled OLS will result in consistent estimator due to the constant term being iid.
 
 
 \begin{align*}
@@ -36,8 +111,9 @@ t&=1\dots T
 
 Where $u_{it} = \alpha_i - \alpha + \epsilon_{it}$. If there is a fixed effect for true model, then the $\alpha_i$ will be within the error term, correlated with the regressors.
 
+
 ####3.1.2 Between
-Where the pooled OLS estimator uses variation over both time and cross-section to estimate $\beta$, the between estatimtor averages and individuals variables over time, thus only using variation between individuals. Using the individual-specific effects model ($y_{it}=\alpha_i + x'_{it}\beta + \epsilon_{it}):
+Where the pooled OLS estimator uses variation over both time and cross-section to estimate $\beta$, the between estimator averages and individuals variables over time, thus only using variation between individuals. Using the individual-specific effects model ($y_{it}=\alpha_i + x'_{it}\beta + \epsilon_{it}$):
 
 \begin{align*}
 \bar y_i = \alpha + \bar x'_i\beta + (\alpha_i - \alpha_{it} + \bar \epsilon_i), i=1\dots N
@@ -45,11 +121,11 @@ Where the pooled OLS estimator uses variation over both time and cross-section t
 
 where $\bar y_i = T^{-1}\sum_t y_{it}, \bar \epsilon_i = T^{-1}\sum_t \epsilon_{it},\bar x_i = T^{-1}\sum_t x_{it}$.
 
-The between estimator is consistent if the regressors $\bar x_i$ are independent of the composite error $(\alpha_i - \alpha_{it} + \bar \epsilon_i)$. This is fine for a constant coefficient or random effects model but will be inconsistent for a fixed effects model. The individual hetergeionity of the constant, which is correlated overtime, will be found in the error term. This correlation will be found within the $x_{it}$ and thus the $\bar x_i$ and will result in an inconsistent estimator. 
+The between estimator is consistent if the regressors $\bar x_i$ are independent of the composite error $(\alpha_i - \alpha_{it} + \bar \epsilon_i)$. This is fine for a constant coefficient or random effects model but will be inconsistent for a fixed effects model. The individual heterogeneity of the constant, which is correlated overtime, will be found in the error term. This correlation will be found within the $x_{it}$ and thus the $\bar x_i$ and will result in an inconsistent estimator. 
 
 ####3.1.3 Within
 
-To ensure consistency, we require strict exogeniety conditional on the unobserved effect. That means we cannot have dependecy on lagged variables, specifically feedback of y to future x's. 
+To ensure consistency, we require strict exogeneity conditional on the unobserved effect. That means we cannot have dependency on lagged variables, specifically feedback of y to future x's. 
 
 Where we have a model:
 
@@ -59,7 +135,7 @@ y_i = \alpha_i + x'_i\beta + \epsilon_{it}, i=1\dots N
 
 We will require E[$\epsilon_{it} |x_{i1},\dots,x_{Nt}$]=0.
 
-'Within' estimator takes advantage of the setup of panel data, where you can use the individual-specified deviations of regressors and dependent variable to find their association with their time-averaged values. The regression over time $\bar y_i = \alpha_ + \bar x'_i\beta + \bar \epsilon_i)$ can be subtracted from our individual-sepicified model to eliminate the individual varying constant.
+'Within' estimator takes advantage of the setup of panel data, where you can use the individual-specified deviations of regressors and dependent variable to find their association with their time-averaged values. The regression over time $\bar y_i = \alpha_ + \bar x'_i\beta + \bar \epsilon_i)$ can be subtracted from our individual-specified model to eliminate the individual varying constant.
 
 \begin{align*}
 y_{it}-\bar y_i = (x_{it}-\bar x_i)'\beta + (\epsilon_{it}-\bar \epsilon_i), i=1\dots N, t=1\dots T\\
@@ -67,13 +143,13 @@ y_{it}-\bar y_i = (x_{it}-\bar x_i)'\beta + (\epsilon_{it}-\bar \epsilon_i), i=1
 
 This will lead to a consistent estimator in fixed effects models, along with pooled OLS and random effects models. Though $\beta$s can be estimated consistently, the individual constant terms can also be estimated but will be inconsistent in short panels. OLS and GLS can be used for the 'within' estimators to achieve consistency.
 
-Relating back to the exogenity required, the condidition that must hold for consistent estimation is:
+Relating back to the exogeneity required, the condition that must hold for consistent estimation is:
 
 \begin{align*}
 E[\epsilon_{it}-\bar \epsilon_i |x_{i1}-\bar x_i,\dots,x_{Nt}]=0\end{align*}
 \end{align*}
 
-Though the original strict exogenity condition is sufficient.
+Though the original strict exogeneity condition is sufficient.
 
 A limitation is if any of the regressors are time-invariant, then they would be differenced out and you will not be able to find coefficients for them.
 
@@ -102,16 +178,18 @@ Random effects makes the assumption that the regressors and the idiosyncratic er
 
 
 ####3.2.1 Pooled OLS
-We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. Erros are auto-correlated over time. In short panels, there is an assumption that there is independence over individuals.We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
+We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. Errors are auto-correlated over time. In short panels, there is an assumption that there is independence over individuals.We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
 
-We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model overperdicts the dependent variable in one year, it may also overpredct for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how percise the estimator is. 
+We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model Over predicts the dependent variable in one year, it may also Over predicts for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how precise the estimator is. 
 
-The default standard errors presented by the regression output would be valid if we the erros were homoskedastic and not serially correlated (over time). Failure to control for homoskadesticity will give you a downward bias.
+The default standard errors presented by the regression output would be valid if we the errors were homoskedastic and not serially correlated (over time). Failure to control for homoskedasticity will give you a downward bias.
+
+
 
 
 ####3.2.2 Between
 
-The inclusion of $\alpha_i$ will help control for serial correlation but the large gap between the default standard errors and the bootstrap standard errors means there is still an issue. The default standard error still is under the assumption that the errors are homoskadicitic. Since between estimators only uses cross-section variation, it only is under the homskeditictic assumption.
+The inclusion of $\alpha_i$ will help control for serial correlation but the large gap between the default standard errors and the bootstrap standard errors means there is still an issue. The default standard error still is under the assumption that the errors are homoskedastic. Since between estimators only uses cross-section variation, it only is under the homoskedastic assumption.
 
 ####3.2.3 Within
 
@@ -122,10 +200,62 @@ The distribution of the 'within' estimator can be complicated because the $\epsi
 First-difference estimators need to account for correlation over time in the error term $\epsilon_{it}-\epsilon_{i,t-1}$. You cannot use OLS standard errors for 'first-difference' model as they only apply if $\epsilon_{it}$ is a random walk and $\epsilon_{it}-\epsilon_{i,t-1}$ is iid. We need to use a robust standard error estimation by assuming $\epsilon_{it}-\epsilon_{i,t-1}$ is a MA(1) process.
 ####3.2.5 Random Effects
 
-The assumption is made that both $\alpha_i$ and $\epsilon_{it}$ are iid, import for when they place in the error term, $u_{it}=\alpha_i+\epsilon_{it}$. 'Random effects' doesn't require more then strict exogeneity and linear indepdence of transformed data for consistency. The assumptions of homoskedasticity are not important for consistency.
+The assumption is made that both $\alpha_i$ and $\epsilon_{it}$ are iid, import for when they place in the error term, $u_{it}=\alpha_i+\epsilon_{it}$. 'Random effects' doesn't require more then strict exogeneity and linear independence of transformed data for consistency. The assumptions of homoskedasticity are not important for consistency.
 
-##Question 4
+###Question 4
 
-The Hausmen test assumes that the fixed effect and random effect estimators are consistent under the null. The alternative hypothesis is that only fixed effect is consistent. We are attempting to find if there is any correlation between the individual-specific effects and the regressors. We assume that the 'random effect' estimator is efficient under null, so no heteroskedicity is present. If there is statistically significant difference between the estimators, then 'fixed effects' are present. 
+The Hausmen test assumes that the fixed effect and random effect estimators are consistent under the null. The alternative hypothesis is that only fixed effect is consistent. We are attempting to find if there is any correlation between the individual-specific effects and the regressors. We assume that the 'random effect' estimator is efficient under null, so no heteroskedasticity is present. If there is statistically significant difference between the estimators, then 'fixed effects' are present. 
+
+```{r, echo=FALSE}
+form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
+
+phtest(within,random) #All coefficients
+
+within.l <- plm(lnhr~lnwg, data = mydata, model = "within",index=c("id"),effect="individual")
+random.l<-plm(lnhr~lnwg, data = mydata, model = "random",index=c("id"),effect="individual")
+
+phtest(within.l,random.l) #Labour elasticity coefficients
+```
 
 We can conclude that with both specifications, we produce a large statistic which would reject our null hypothesis. This means we would reject that our individual-specific effects are uncorrelated with regressors and reject that the 'random effects' estimator is consistent.
+
+###Question 5
+
+```{r}
+mydata$hr<-round(exp(mydata$lnhr)/365)
+```
+
+###Question 6
+
+```{r, message=FALSE}
+require(pglm)
+tab<-data.frame(Model=c("Pooled","Within","Random Effect"))
+
+form.count<-as.formula(paste("hr~lnwg+kids+disab+ageh+agesq"))
+pooled.count<-glm(form.count,family="poisson",data=mydata)
+within.count<-pglm(form.count,model="within",family=poisson,data=mydata,index="id")
+random.count<-pglm(form.count,model="random",family=poisson,data=mydata,index="id")
+
+values.count<-list(pooled.count,within.count,random.count)
+alpha<-sapply(values, function(x) coef(x)[1])
+beta<-sapply(values,function(x) coef(x)[2])
+se<-sapply(values, function(x) sqrt(vcov(x)[2,2]))
+
+se.b<-numeric()
+models<-boot_se(mydata,200,"pooling",effect=NULL)
+se.b[1]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"between",effect=NULL)
+se.b[2]<-sd(sapply(models, function(x) x[2]))
+
+models<-boot_se(mydata,200,"random",effect="individual")
+se.b[3]<-sd(sapply(models, function(x) x[2]))
+
+tab$alpha<-alpha
+tab$beta<-beta
+tab$se<-se
+tab$se.boot<-se.b
+
+kable(tab, digits=3, caption="Count Model: Estimated Coefficients, Default SE & Bootstrap SE")
+```
+

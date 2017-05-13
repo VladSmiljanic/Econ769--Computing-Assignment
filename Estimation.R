@@ -1,12 +1,9 @@
 library(haven)
 #source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
 source <- read_dta("C:/Users/vlads_000/Documents/GitHub/Econ769--Computing-Assignment/017769exercise.dta")
-require(sandwich)
-require(MASS)
 require(plm)
-require(boot)
 require(pglm)
-tab<-data.frame(Model=c("Pooled","Between","First Difference","Random Effect","Within"))
+
 resamp<-function(data,replace,size){ #Resampling function
   unique_ind<-unique(data$id) #Identifies the datas unique individuals
   samp_ind<-sample(unique_ind,size=size,replace=replace) #Randomly samples over those individuals
@@ -55,11 +52,30 @@ boot_se<-function(data,R,model,effect,parameter){
   lapply(func_data, function(x) coef(plm(form, data=x, model=model,index="id",effect=effect)))
 }
 
-se.b<-numeric()
-#
-models<-boot_se(mydata,200,"pooling",effect=NULL)
-se.b[1]<-sd(sapply(models, function(x) x[2]))
-#
+tab<-data.frame(Model=c("lnwg","kids","disab","ageh","agesq"))
+for (j in values){
+  se.b<-numeric()
+  if (j =="within"){
+    models<-boot_se(mydata,50,j,effect=NULL)
+    test<-sapply(models, function(x) x)
+    se.b[1]<-sd(test[1,])
+    se.b[2]<-sd(test[2,])
+    se.b[3]<-sd(test[3,])
+    se.b[4]<-sd(test[4,])
+    se.b[5]<-sd(test[5,])
+    tab$j<-se.b
+  } else{
+    models<-boot_se(mydata,50,j,effect=NULL)
+    test<-sapply(models, function(x) x)
+    se.b[1]<-sd(test[2,])
+    se.b[2]<-sd(test[3,])
+    se.b[3]<-sd(test[4,])
+    se.b[4]<-sd(test[5,])
+    se.b[5]<-sd(test[6,])
+    tab$j<-se.b
+  }
+}
+
 models<-boot_se(mydata,200,"between",effect=NULL)
 se.b[2]<-sd(sapply(models, function(x) x[2]))
 #

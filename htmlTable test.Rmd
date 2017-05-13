@@ -1,0 +1,33 @@
+---
+title: "htmlTable Test"
+author: "Vladimir Smiljanic"
+date: '2017-05-13'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, results='asis'}
+library(haven)
+source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
+require(plm)
+require(pglm)
+require(stargazer)
+
+resamp<-function(data,replace,size){ #Resampling function
+  unique_ind<-unique(data$id) #Identifies the datas unique individuals
+  samp_ind<-sample(unique_ind,size=size,replace=replace) #Randomly samples over those individuals
+  do.call(rbind,lapply(samp_ind,function(x) data[data$id==x,])) #Returns data frame with those individuals observations over time.
+}
+
+mydata<-resamp(source,replace=FALSE,size=266)
+
+form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
+
+pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
+between <- plm(form, data = mydata, model = "between",index=c("id"))
+within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
+fd<-plm(form, data = mydata, model = "fd",index=c("id"))
+random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
+stargazer(pooled,between,within,fd,random,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Between","Within","First-Diff.","Random"))
+```
