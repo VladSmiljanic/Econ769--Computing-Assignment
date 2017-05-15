@@ -44,7 +44,7 @@ within <- plm(form, data = source, model = "within",index=c("id"),effect="indivi
 \newpage
 
 ```{r, results='asis'}
-stargazer(pooled,within,random,between,fd,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Within","Random","Between","First-Diff."))
+stargazer(pooled,between,within,fd,random,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Between","Within","First-Diff.","Random"))
 ```
 
 To produce bootstrap standard errors, I built my own R function that would resample on the individuals. I spent a good deal of time attempting to find a package that would allow me to resample panel data which resulted in me building my own iterating technique. Comments for each line of code can be found with the accompanying .rmd file.
@@ -62,13 +62,13 @@ boot_se<-function(data,R,model,effect,parameter){
   lapply(func_data, function(x) coef(plm(form, data=x, model=model,index="id",effect=effect)))
 }
 
-col.n<-c("Coefficients","Pooled","Within","Random Effect","Between","First Difference")
+col.n<-c("Coefficients","Pooled","Between","First Difference","Random Effect","Within")
 tab<-data.frame(Model=c("lnwg","kids","disab","ageh","agesq"))
 
 tab$pooled<-apply(data.frame(boot_se(mydata,20,"pooling",effect=NULL))[2:6,], 1, mean)
+tab$between<-apply(data.frame(boot_se(mydata,20,"between",effect=NULL))[2:6,], 1, mean)
 tab$within<-apply(data.frame(boot_se(mydata,20,"within",effect="individual"))[1:5,], 1, mean)
 tab$random<-apply(data.frame(boot_se(mydata,20,"random",effect="individual"))[2:6,], 1, mean)
-tab$between<-apply(data.frame(boot_se(mydata,20,"between",effect=NULL))[2:6,], 1, mean)
 tab$first.difference<-apply(data.frame(boot_se(mydata,20,"fd",effect=NULL))[2:6,], 1, mean)
 
 kable(tab, digits=3, caption="Linear Model: Bootstrap Standard Errors",col.names=col.n)
@@ -223,21 +223,13 @@ Using our new count variable, we will estimate the coefficients for the pooled, 
 form<-as.formula(paste("hr~lnwg+kids+disab+ageh+agesq"))
 
 pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
-within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
+between <- plm(form, data = mydata, model = "between",index=c("id"))
+fd<-plm(form, data = mydata, model = "fd",index=c("id"))
 random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
+within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
+a.within<-mean(fixef(within)) #Average of individual-specific effects
 ```
 
 ```{r, results='asis'}
-stargazer(pooled,within,random,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Within","Random"))
-```
-
-```{r, echo=FALSE}
-col.n<-c("Coefficients","Pooled","Within","Random Effect")
-tab<-data.frame(Model=c("lnwg","kids","disab","ageh","agesq"))
-
-tab$pooled<-apply(data.frame(boot_se(mydata,20,"pooling",effect=NULL))[2:6,], 1, mean)
-tab$within<-apply(data.frame(boot_se(mydata,20,"within",effect="individual"))[1:5,], 1, mean)
-tab$random<-apply(data.frame(boot_se(mydata,20,"random",effect="individual"))[2:6,], 1, mean)
-
-kable(tab, digits=3, caption="Linear Model: Bootstrap Standard Errors",col.names=col.n)
+stargazer(pooled,between,within,fd,random,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Between","Within","First-Diff.","Random"))
 ```

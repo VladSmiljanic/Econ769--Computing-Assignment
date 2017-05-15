@@ -8,7 +8,7 @@ output:
 ---
 ###Question 1
 
-The following code produces a 50% subsample of the source data, sampling on the individuals.
+The following code produces a 50% subsample of the source data, sampling on the individuals:
 
 ```{r, echo=FALSE}
 library(haven)
@@ -16,6 +16,8 @@ source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assi
 ```
 
 ```{r}
+set.seed(42)
+
 resamp<-function(data,replace,size){ #Resampling function
   unique_ind<-unique(data$id) 
   samp_ind<-sample(unique_ind,size=size,replace=replace)
@@ -27,7 +29,7 @@ mydata<-resamp(source,replace=FALSE,size=266)
 
 ###Question 2
 
-We can display the coefficients and their standard errors to show the variation in the results by assuming the model:
+We can display the coefficients and their standard errors from the different models we will be estimating:
 
 ```{r, message=FALSE}
 require(plm)
@@ -37,22 +39,22 @@ form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
 pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
 between <- plm(form, data = mydata, model = "between",index=c("id"))
 fd<-plm(form, data = mydata, model = "fd",index=c("id"))
-random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
-within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
+random<-plm(form, data = mydata, model = "random",index=c("id"),effect="individual")
+within <- plm(form, data = mydata, model = "within",index=c("id"),effect="individual")
 ```
 
 \newpage
 
-```{r, results='asis'}
+```{r, results='asis', echo=FALSE}
 stargazer(pooled,within,random,between,fd,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Within","Random","Between","First-Diff."))
 ```
 
-To produce bootstrap standard errors, I built my own R function that would resample on the individuals. I spent a good deal of time attempting to find a package that would allow me to resample panel data which resulted in me building my own iterating technique. Comments for each line of code can be found with the accompanying .rmd file.
+To produce bootstrap standard errors, I built my own R function that would resample on the individuals. I spent a good deal of time attempting to find a package that would allow me to resample panel data but resulted in me building my own iterating technique. The code can be found the accompanying document (issue fitting into PDF):
 
 ```{r kable, echo=FALSE}
 library(knitr)
 
-boot_se<-function(data,R,model,effect,parameter){
+boot_se<-function(data,R,model,effect){
   unique_ind<-unique(data$id)
   samp_ind<-list()
   for (j in 1:R){
@@ -65,11 +67,11 @@ boot_se<-function(data,R,model,effect,parameter){
 col.n<-c("Coefficients","Pooled","Within","Random Effect","Between","First Difference")
 tab<-data.frame(Model=c("lnwg","kids","disab","ageh","agesq"))
 
-tab$pooled<-apply(data.frame(boot_se(mydata,20,"pooling",effect=NULL))[2:6,], 1, mean)
-tab$within<-apply(data.frame(boot_se(mydata,20,"within",effect="individual"))[1:5,], 1, mean)
-tab$random<-apply(data.frame(boot_se(mydata,20,"random",effect="individual"))[2:6,], 1, mean)
-tab$between<-apply(data.frame(boot_se(mydata,20,"between",effect=NULL))[2:6,], 1, mean)
-tab$first.difference<-apply(data.frame(boot_se(mydata,20,"fd",effect=NULL))[2:6,], 1, mean)
+tab$pooled<-apply(data.frame(boot_se(mydata,20,"pooling",effect=NULL))[2:6,], 1, sd)
+tab$within<-apply(data.frame(boot_se(mydata,20,"within",effect="individual"))[1:5,], 1, sd)
+tab$random<-apply(data.frame(boot_se(mydata,20,"random",effect="individual"))[2:6,], 1, sd)
+tab$between<-apply(data.frame(boot_se(mydata,20,"between",effect=NULL))[2:6,], 1, sd)
+tab$first.difference<-apply(data.frame(boot_se(mydata,20,"fd",effect=NULL))[2:6,], 1, sd)
 
 kable(tab, digits=3, caption="Linear Model: Bootstrap Standard Errors",col.names=col.n)
 ```
@@ -85,7 +87,7 @@ y_{it} = \alpha + x'_{it}\beta + u_{it},i&=1\dots N\\
 t&=1\dots T 
 \end{align*}
 
-Since all of the data is pooled, the number of observations is equal to $N \cdot T$. If Cov[$u_{it},x_{it}$]=0, then either $N\rightarrow\infty$ or $T\rightarrow\infty$ is sufficient for consistency. The pooled OLS estimator will be consistent if there is no correlation between $\alpha$ and $x_{it}$ and that regressors are uncorrelated with the error term. 
+Since all of the data is pooled, the number of observations is equal to $N \times T$. If Cov[$u_{it},x_{it}$]=0, then either $N\rightarrow\infty$ or $T\rightarrow\infty$ is sufficient for consistency. The pooled OLS estimator will be consistent if there is no correlation between $\alpha$ and $x_{it}$ and that the regressors are uncorrelated with the error term. 
 
 In addition, our model will be inconsistent if the true model is a fixed effects model where the constant term is heterogeneous for individual and is correlated with the regressors. Using pooled OLS estimation will result in an inconsistent $\beta$ as a result of the heterogeneity being placed into the error term, which would now be correlated with the regressors. If the underlying true model is random effects, then using pooled OLS will result in consistent estimator due to the constant term being iid.
 
@@ -95,7 +97,7 @@ y_{it} = \alpha + x'_{it}\beta + u_{it}, i&=1\dots N\\
 t&=1\dots T 
 \end{align*}
 
-Where $u_{it} = \alpha_i - \alpha + \epsilon_{it}$. If there is a fixed effect for true model, then the $\alpha_i$ will be within the error term, correlated with the regressors.
+Where $u_{it} = \alpha_i - \alpha + \epsilon_{it}$. If there is a fixed effect for true model, then the $\alpha_i$ will be within the error term, be correlated with the regressors resulting in inconsistent estimator.
 
 
 ####3.1.2 Between
@@ -132,7 +134,7 @@ This will lead to a consistent estimator in fixed effects models, along with poo
 Relating back to the exogeneity required, the condition that must hold for consistent estimation is:
 
 \begin{align*}
-E[\epsilon_{it}-\bar \epsilon_i |x_{i1}-\bar x_i,\dots,x_{Nt}]=0\end{align*}
+E[\epsilon_{it}-\bar \epsilon_i |x_{i1}-\bar x_i,\dots,x_{Nt}]=0
 \end{align*}
 
 Though the original strict exogeneity condition is sufficient.
@@ -166,7 +168,7 @@ Random effects makes the assumption that the regressors and the idiosyncratic er
 ####3.2.1 Pooled OLS
 We cannot use the usual OLS standard errors because they are based on iid errors, something that is not true for pooled OLS. Errors are auto-correlated over time. In short panels, there is an assumption that there is independence over individuals.We must use panel-corrected standard errors to ensure that we are providing the correct inference. 
 
-We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model Over predicts the dependent variable in one year, it may also Over predicts for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how precise the estimator is. 
+We must correct the standard errors due to correlation that an individuals error term have over time. Each individual dependent variable $y_{it}$ will have a high correlation over time. Therefore, if the model over predicts the dependent variable in one year, it may also over predict for the same individual the next year. OLS treats the dependent variables over time as independent observations but as we see from our data this isn't true. Our standard errors will show a level of precision that is not correct and overstate how precise the estimator is. 
 
 The default standard errors presented by the regression output would be valid if we the errors were homoskedastic and not serially correlated (over time). Failure to control for homoskedasticity will give you a downward bias.
 
@@ -184,18 +186,23 @@ The distribution of the 'within' estimator can be complicated because the $\epsi
 ####3.2.4 First Differences
 
 First-difference estimators need to account for correlation over time in the error term $\epsilon_{it}-\epsilon_{i,t-1}$. You cannot use OLS standard errors for 'first-difference' model as they only apply if $\epsilon_{it}$ is a random walk and $\epsilon_{it}-\epsilon_{i,t-1}$ is iid. We need to use a robust standard error estimation by assuming $\epsilon_{it}-\epsilon_{i,t-1}$ is a MA(1) process.
-####3.2.5 Random Effects
 
-The assumption is made that both $\alpha_i$ and $\epsilon_{it}$ are iid, import for when they place in the error term, $u_{it}=\alpha_i+\epsilon_{it}$. 'Random effects' doesn't require more then strict exogeneity and linear independence of transformed data for consistency. The assumptions of homoskedasticity are not important for consistency.
 
 \newpage
+
+####3.2.5 Random Effects
+
+The assumption is made that both $\alpha_i$ and $\epsilon_{it}$ are iid, important for when they are placed in the error term, $u_{it}=\alpha_i+\epsilon_{it}$. 'Random effects' doesn't require more then strict exogeneity and linear independence of transformed data for consistency. The assumptions of homoskedasticity are not important for consistency.
+
 
 ###Question 4
 
 The Hausmen test assumes that the fixed effect and random effect estimators are consistent under the null. The alternative hypothesis is that only fixed effect is consistent. We are attempting to find if there is any correlation between the individual-specific effects and the regressors. We assume that the 'random effect' estimator is efficient under null, so no heteroskedasticity is present. If there is statistically significant difference between the estimators, then 'fixed effects' are present. 
 
 ```{r, echo=FALSE}
-form<-as.formula(paste("lnhr~lnwg+kids+disab+ageh+agesq"))
+
+random<-plm(lnhr~lnwg+kids+disab+ageh+agesq, data = mydata, model = "random",index=c("id"),effect="individual")
+within <- plm(lnhr~lnwg+kids+disab+ageh+agesq, data = mydata, model = "within",index=c("id"),effect="individual")
 
 phtest(within,random) #All coefficients
 
@@ -209,7 +216,7 @@ We can conclude that with both specifications, we produce a large statistic whic
 
 ###Question 5
 
-We will take the exponetial of the 'lnhr' variable and divide it by 365. We will produce the numbers of hours worked per day to the nearest hour:
+We will take the exponetial of the 'lnhr' variable and divide it by 365. This will produce the number of hours worked per day to the nearest hour:
 
 ```{r}
 mydata$hr<-round(exp(mydata$lnhr)/365)
@@ -217,27 +224,20 @@ mydata$hr<-round(exp(mydata$lnhr)/365)
 
 ###Question 6
 
-Using our new count variable, we will estimate the coefficients for the pooled, within and random effects model:
+Using our new count variable, we will estimate the pooled, within and random effects models:
+
+\newpage
 
 ```{r, message=FALSE}
+require(pglm)
 form<-as.formula(paste("hr~lnwg+kids+disab+ageh+agesq"))
 
-pooled<- plm(form, data = mydata, model = "pooling",index=c("id"))
-within <- plm(form, data = source, model = "within",index=c("id"),effect="individual")
-random<-plm(form, data = source, model = "random",index=c("id"),effect="individual")
+summary(glm(form,family="poisson",data=mydata))
+summary(pglm(form,model="within",family=poisson,data=mydata,index="id"))
+summary(pglm(form,model="random",family=poisson,data=mydata,index="id",effect="individual"))
 ```
 
-```{r, results='asis'}
-stargazer(pooled,within,random,no.space=TRUE,omit.stat = c("f"),column.labels = c("Pooled","Within","Random"))
-```
 
-```{r, echo=FALSE}
-col.n<-c("Coefficients","Pooled","Within","Random Effect")
-tab<-data.frame(Model=c("lnwg","kids","disab","ageh","agesq"))
+Unfortunately, bootstrapping with "random effect" and "fixed effect" proved to be difficult to solve using R at this point in time. I was not able to produce Standard Errors that were correct and a result I will not be presenting them at this time.
 
-tab$pooled<-apply(data.frame(boot_se(mydata,20,"pooling",effect=NULL))[2:6,], 1, mean)
-tab$within<-apply(data.frame(boot_se(mydata,20,"within",effect="individual"))[1:5,], 1, mean)
-tab$random<-apply(data.frame(boot_se(mydata,20,"random",effect="individual"))[2:6,], 1, mean)
-
-kable(tab, digits=3, caption="Linear Model: Bootstrap Standard Errors",col.names=col.n)
-```
+###Question 7

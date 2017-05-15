@@ -1,6 +1,6 @@
 library(haven)
-#source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
-source <- read_dta("C:/Users/vlads_000/Documents/GitHub/Econ769--Computing-Assignment/017769exercise.dta")
+source <- read_dta("~/Desktop/Vlad's Stuff/Vlad's School/Econ769- Computing Assignment/017769exercise.dta")
+#source <- read_dta("C:/Users/vlads_000/Documents/GitHub/Econ769--Computing-Assignment/017769exercise.dta")
 require(plm)
 require(pglm)
 
